@@ -1,0 +1,31 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Verify a certificate · Ultrasound Physics Interactive Lab</title>
+<meta name=robots content=noindex>
+<style>
+:root{--bg:#001e3c;--c:#0b2e5a;--r:#ff3b30;--g:#fcd034;--t:#e9f0ff;--m:#9db4d8}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--t);background:radial-gradient(circle at 20% 0,#0b3a75,var(--bg) 60%)}
+main{max-width:620px;margin:0 auto;padding:40px 20px}
+h1{margin:0 0 4px;font-size:26px}h1 span{color:var(--g)}.tag{color:var(--m);margin:0 0 24px}
+.card{background:rgba(8,36,74,.95);border:1px solid rgba(252,208,52,.4);border-radius:18px;padding:22px}
+form{display:flex;gap:10px;flex-wrap:wrap}input{flex:1;min-width:200px;padding:11px 12px;border-radius:10px;border:1px solid #2b5a96;background:#001428;color:#fff;font-size:16px;text-transform:uppercase;letter-spacing:1px}
+button{padding:11px 20px;border:0;border-radius:10px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,var(--r),var(--g));color:#1a0d00;font-size:15px}
+#out{margin-top:20px}.res{border-radius:14px;padding:18px}.ok{background:rgba(74,222,128,.12);border:1px solid #4ade80}.no{background:rgba(255,59,48,.12);border:1px solid var(--r)}
+.res b.h{display:block;font-size:19px;margin-bottom:8px}dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0}dt{color:var(--m)}dd{margin:0;font-weight:600}
+a{color:var(--g)}footer{color:var(--m);font-size:13px;margin-top:24px;text-align:center}
+</style></head><body><main>
+<h1>Ultrasound Physics <span>Interactive Lab</span></h1><p class=tag>Certificate verification · Medprime Education Group</p>
+<div class=card><p style="margin-top:0">Enter the certificate ID printed on the certificate (for example <b>MP-ABCD-2345</b>), or scan the QR code on it.</p>
+<form id=f><label for=id hidden>Certificate ID</label><input id=id name=id placeholder="MP-XXXX-XXXX" maxlength=20 autocomplete=off required><button>Verify</button></form>
+<div id=out role=status aria-live=polite></div></div>
+<footer><a href="/">← Back to the lab</a> · <a href="https://wa.me/233544296648" target="_blank" rel="noopener" style="color:inherit" title="Chat on WhatsApp">💬 WhatsApp: 0544296648</a> · <a href="https://mail.google.com/mail/?view=cm&fs=1&to=medprimeeducationgroup@gmail.com" target="_blank" rel="noopener" title="Email us via Gmail" style="color:inherit">✉️ medprimeeducationgroup@gmail.com</a></footer>
+</main><script>
+const f=document.getElementById('f'),inp=document.getElementById('id'),out=document.getElementById('out');
+const esc=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function check(id){id=id.trim().toUpperCase();if(!id)return;out.innerHTML='<p>Checking…</p>';history.replaceState(null,'','?id='+encodeURIComponent(id));
+try{const r=await fetch('/api/certificate?id='+encodeURIComponent(id));
+if(r.status==404){out.innerHTML='<div class="res no"><b class=h>❌ Not found</b>No certificate has the ID <b>'+esc(id)+'</b>. Check the ID for typing mistakes. If you think this is an error, contact Medprime Education Group.</div>';return}
+if(!r.ok)throw 0;const c=await r.json();
+out.innerHTML='<div class="res ok"><b class=h>✅ Genuine certificate</b><dl><dt>Awarded to</dt><dd>'+esc(c.name)+'</dd><dt>Course</dt><dd>Ultrasound Physics Interactive Lab: all simulations and quizzes</dd><dt>Overall score</dt><dd>'+esc(c.score)+'%</dd><dt>Issued</dt><dd>'+new Date(c.issuedAt).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})+'</dd><dt>Certificate ID</dt><dd>'+esc(c.id)+'</dd></dl></div>'}
+catch(e){out.innerHTML='<div class="res no"><b class=h>Could not check right now</b>Please try again in a moment.</div>'}}
+f.onsubmit=e=>{e.preventDefault();check(inp.value)};
+const q=new URLSearchParams(location.search).get('id');if(q){inp.value=q;check(q)}
+</script></body></html>

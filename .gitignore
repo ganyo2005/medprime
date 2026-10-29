@@ -1,0 +1,13 @@
+# Secrets — never commit real keys
+.env
+.env.*
+!.env.example
+
+# Python / Django
+__pycache__/
+*.pyc
+db.sqlite3
+staticfiles/
+venv/
+.venv/
+

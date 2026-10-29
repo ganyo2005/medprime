@@ -1,0 +1,84 @@
+{% load static %}<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>AI topics · Ultrasound Physics Interactive Lab</title>
+<style>
+:root{--bg:#001e3c;--c:#0b2e5a;--r:#ff3b30;--g:#fcd034;--t:#e9f0ff;--m:#9db4d8}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--t);background:radial-gradient(circle at 20% 0,#0b3a75,var(--bg) 60%)}
+main{max-width:980px;margin:0 auto;padding:30px 20px 80px}
+h1{margin:0 0 4px;font-size:24px}h1 span{color:var(--g)}
+.card{background:rgba(8,36,74,.95);border:1px solid rgba(252,208,52,.35);border-radius:16px;padding:20px;margin-bottom:20px}
+textarea{width:100%;min-height:70px;padding:10px 12px;border-radius:10px;border:1px solid #2b5a96;background:#001428;color:#fff;font-size:15px;font-family:inherit}
+.xb{padding:9px 16px;border-radius:10px;border:1px solid var(--g);background:rgba(0,14,34,.6);color:#fff;font-weight:600;font-size:14px;cursor:pointer}
+.xb.p{background:linear-gradient(135deg,var(--r),var(--g));color:#1a0d00;border-color:transparent;font-weight:700}
+.xb.danger{border-color:var(--r);color:#ff8a80}
+.xb:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.msgs{list-style:none;padding:0;margin:0 0 16px}.msgs li{padding:10px 14px;border-radius:10px;margin-bottom:8px}
+.msgs li.success{background:#4ade8022;border:1px solid #4ade80}.msgs li.error{background:#ff3b3022;border:1px solid var(--r)}
+.topic{border-top:1px solid rgba(252,208,52,.2);padding-top:16px;margin-top:16px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;margin-left:8px}
+.badge.draft{background:#fcd03433;color:var(--g)}.badge.published{background:#4ade8033;color:#4ade80}.badge.rejected{background:#ff3b3033;color:#ff8a80}
+.err{color:#ff8a80;font-size:13px;margin-top:6px}
+.meta{color:var(--m);font-size:13px;margin:4px 0}
+.preview{display:none;margin-top:14px;background:#001428;border-radius:12px;padding:14px}
+.preview.on{display:block}
+canvas{display:block;border-radius:8px;background:#001428;max-width:100%}
+.ctl label{display:block;font-size:13px;color:var(--m);margin:8px 0 2px}
+.out div{display:inline-block;margin:4px 14px 4px 0;font-size:13px}.out b{color:var(--g)}
+.previewerr{color:var(--r);font-weight:700;padding:10px;background:#ff3b3022;border-radius:8px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(252,208,52,.35);border-top-color:var(--g);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loadmsg{color:var(--g)}
+.quiz .q{margin:10px 0}.quiz button{display:block;width:100%;text-align:left;margin:4px 0;padding:8px 10px;border-radius:8px;border:1px solid #2b5a96;background:#00142899;color:#fff;cursor:pointer}
+.quiz button.good{border-color:#4ade80;color:#4ade80}.quiz button.bad{border-color:var(--r);color:#ff8a80}
+.reasonbox{width:220px}
+</style></head><body><main>
+<h1>Ultrasound Physics Lab · <span>AI Topics</span></h1>
+<p class=meta>Generate a new simulation topic from a prompt, review it live below, then approve or reject. Approving publishes it to the real site immediately.</p>
+
+{% if messages %}<ul class=msgs>{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+
+<div class=card>
+<h3 style="margin-top:0">Generate a new topic</h3>
+<form method=post action="{% url 'lab_staff:staff_topic_generate' %}" id=genForm>
+{% csrf_token %}
+<textarea name=prompt placeholder="Describe the topic, e.g. &quot;Beam steering and phased arrays — how electronic delays sweep and focus the beam&quot;" required></textarea>
+<div class=row><button type=submit class="xb p" id=genBtn>✨ Generate draft</button><span class=meta id=genMsg>Uses Claude Opus 5.5 with extended thinking — can take up to a minute.</span></div>
+</form>
+</div>
+
+{% for topic in topics %}
+<div class=card>
+<div class=topic>
+<b>{{ topic.n }}</b><span class="badge {{ topic.status }}">{{ topic.get_status_display }}</span>
+{% if topic.status == 'published' and topic.error_count %}<span class="badge rejected">⚠️ erroring in production ({{ topic.error_count }}×)</span>{% endif %}
+<p class=meta>{{ topic.g }}</p>
+<p class=meta>Prompt: “{{ topic.prompt }}” · by {{ topic.created_by|default:"—" }} · {{ topic.created_at|date:"d M Y, H:i" }}</p>
+{% if topic.status == 'rejected' and topic.rejected_reason %}<p class=err>Reason: {{ topic.rejected_reason }}</p>{% endif %}
+{% if topic.status == 'published' and topic.last_error_message %}<p class=err>Last error: {{ topic.last_error_message }}</p>{% endif %}
+
+<div class=row>
+<button type=button class=xb data-preview-toggle data-id="{{ topic.pk }}">👁️ Preview</button>
+{% if topic.status == 'draft' %}
+<form method=post action="{% url 'lab_staff:staff_topic_approve' pk=topic.pk %}" style="display:inline">{% csrf_token %}<button type=submit class="xb p">✅ Approve &amp; publish</button></form>
+<form method=post action="{% url 'lab_staff:staff_topic_reject' pk=topic.pk %}" style="display:inline" class=row>{% csrf_token %}<input type=text name=reason placeholder="Reason (optional)" class=reasonbox><button type=submit class="xb danger">✕ Reject</button></form>
+{% elif topic.status == 'published' %}
+<form method=post action="{% url 'lab_staff:staff_topic_unpublish' pk=topic.pk %}" style="display:inline" onsubmit="return confirm('Take this topic offline?')">{% csrf_token %}<button type=submit class="xb danger">⛔ Unpublish</button></form>
+{% endif %}
+</div>
+
+<div class=preview id="preview-{{ topic.pk }}" data-topic-id="{{ topic.pk }}" data-url="{% url 'lab_staff:staff_topic_preview_data' pk=topic.pk %}">
+<canvas width=800 height=340></canvas>
+<div class=ctl></div>
+<div class=out></div>
+<div class=quiz></div>
+</div>
+</div>
+</div>
+{% empty %}
+<p class=meta>No topics generated yet.</p>
+{% endfor %}
+
+</main>
+<script src="{% static 'js/lab-helpers.js' %}"></script>
+<script src="{% static 'js/staff_topics.js' %}"></script>
+</body></html>

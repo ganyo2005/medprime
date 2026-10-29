@@ -1,0 +1,93 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Enrol your organisation · Ultrasound Physics Interactive Lab</title>
+<style>
+:root{--bg:#001e3c;--c:#0b2e5a;--r:#ff3b30;--g:#fcd034;--t:#e9f0ff;--m:#9db4d8}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--t);background:radial-gradient(circle at 20% 0,#0b3a75,var(--bg) 60%)}
+main{max-width:620px;margin:0 auto;padding:40px 20px}
+h1{margin:0 0 4px;font-size:26px}h1 span{color:var(--g)}.tag{color:var(--m);margin:0 0 24px}
+.card{background:rgba(8,36,74,.95);border:1px solid rgba(252,208,52,.4);border-radius:18px;padding:22px}
+label{display:block;margin-bottom:14px;font-size:14px}
+input{width:100%;margin-top:6px;padding:11px 12px;border-radius:10px;border:1px solid #2b5a96;background:#001428;color:#fff;font-size:16px}
+button{padding:12px 22px;border:0;border-radius:10px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,var(--r),var(--g));color:#1a0d00;font-size:15px;width:100%}
+button:disabled{opacity:.6;cursor:default}
+#price{color:var(--g);font-weight:700}
+#msg{margin-top:14px;font-size:14px}#msg.er{color:var(--r)}#msg.ok{color:#4ade80}
+.join{display:none;text-align:center}
+.join code{display:block;font-size:26px;letter-spacing:2px;background:#001428;border:1px dashed var(--g);border-radius:10px;padding:16px;margin:16px 0;color:var(--g)}
+a{color:var(--g)}footer{color:var(--m);font-size:13px;margin-top:24px;text-align:center}
+</style></head><body><main>
+<h1>Ultrasound Physics <span>Interactive Lab</span></h1><p class=tag>Enrol your organisation · Medprime Education Group</p>
+<div class=card>
+<div id=form_wrap>
+<p style="margin-top:0">Pay once for a block of student seats. Afterwards you'll get a join code to share with your students — each one creates their own free account and enters the code to unlock full access. No separate login for you to manage.</p>
+<form id=f>
+<label>Organisation name<input name=name required maxlength=160></label>
+<label>Contact name<input name=contact_name required maxlength=120></label>
+<label>Contact email<input name=contact_email type=email required maxlength=160></label>
+<label>Contact phone (optional)<input name=contact_phone maxlength=40></label>
+<label>Number of student seats<input name=seats type=number min=1 max=10000 value=10 required></label>
+<p>Total: <span id=price>GHS {{ price_per_seat }}0</span> <small>(GHS {{ price_per_seat }} per seat)</small></p>
+<button type=submit id=b>Pay &amp; get join code</button>
+</form>
+<p id=msg role=status aria-live=polite></p>
+</div>
+<div class=join id=join>
+<p>✅ <b>Payment confirmed.</b> Your join code:</p>
+<code id=code></code>
+<p>Share this with your students. We've also emailed it to your contact address.</p>
+</div>
+</div>
+<footer><a href="/">← Back to the lab</a> · <a href="https://wa.me/233544296648" target="_blank" rel="noopener" style="color:inherit" title="Chat on WhatsApp">💬 WhatsApp: 0544296648</a></footer>
+</main>
+<script src="https://js.paystack.co/v2/inline.js"></script>
+<script>
+const PRICE = {{ price_per_seat }};
+const f = document.getElementById('f'), b = document.getElementById('b'), msg = document.getElementById('msg');
+const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+f.elements.seats.oninput = () => { document.getElementById('price').textContent = 'GHS ' + (PRICE * (+f.elements.seats.value || 0)) };
+
+async function poll(reference, tries) {
+  for (let i = 0; i < (tries || 8); i++) {
+    const r = await fetch('/api/payments/org/status?reference=' + encodeURIComponent(reference));
+    const d = await r.json().catch(() => ({}));
+    if (d.status === 'success') return d;
+    await new Promise(res => setTimeout(res, 1500));
+  }
+  return null;
+}
+
+f.onsubmit = async (e) => {
+  e.preventDefault();
+  b.disabled = true; b.textContent = 'Please wait…'; msg.className = ''; msg.textContent = '';
+  try {
+    const body = JSON.stringify({
+      name: f.elements.name.value, contact_name: f.elements.contact_name.value,
+      contact_email: f.elements.contact_email.value, contact_phone: f.elements.contact_phone.value,
+      seats: +f.elements.seats.value,
+    });
+    const r = await fetch('/api/payments/org/initialize', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() }, body });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Could not start checkout.');
+    const popup = new PaystackPop();
+    popup.resumeTransaction(d.access_code, {
+      onSuccess: async () => {
+        msg.className = 'ok'; msg.textContent = 'Confirming payment…';
+        const result = await poll(d.reference);
+        if (result) {
+          document.getElementById('form_wrap').style.display = 'none';
+          document.getElementById('code').textContent = result.join_code;
+          document.getElementById('join').style.display = 'block';
+        } else {
+          msg.className = 'er'; msg.textContent = 'Payment is still confirming — refresh this page in a minute, or contact us if it does not appear.';
+        }
+      },
+      onCancel: () => { msg.textContent = ''; },
+      onError: (err) => { msg.className = 'er'; msg.textContent = 'Payment error: ' + (err && err.message ? err.message : 'something went wrong on Paystack’s side.'); },
+    });
+  } catch (err) {
+    msg.className = 'er'; msg.textContent = err.message || 'Something went wrong. Please try again.';
+  } finally {
+    b.disabled = false; b.textContent = 'Pay & get join code';
+  }
+};
+</script>
+</body></html>
